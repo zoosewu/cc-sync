@@ -31,7 +31,23 @@ cc-sync sync --force    # confirm removals held by the brake
 cc-sync status
 ```
 
-The `cc-sync` Claude Code plugin in this repo runs the sync automatically.
+## Claude Code plugin
+
+The `cc-sync` plugin runs the sync in the background when a session starts and after every
+main-loop turn, shows the last result on its status line, and adds `/sync [now|status|confirm]`.
+It needs [uv](https://docs.astral.sh/uv/) on `PATH`.
+
+At the prompt of a terminal session:
+
+```
+/plugin install cc-sync --marketplace zoosewu/cc-sync
+```
+
+From a shell:
+
+```sh
+claude plugin install cc-sync --marketplace zoosewu/cc-sync
+```
 
 ## Safety
 

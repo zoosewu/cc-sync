@@ -1,0 +1,6 @@
+{
+  "name": "cc-sync",
+  "version": "0.1.0",
+  "description": "Auto two-way sync of Claude Code user config across machines through a private git repo",
+  "author": { "name": "zoosewu" }
+}

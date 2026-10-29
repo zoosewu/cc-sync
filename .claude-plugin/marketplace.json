@@ -1,0 +1,12 @@
+{
+  "name": "cc-sync",
+  "description": "Plugins for syncing Claude Code across machines",
+  "owner": { "name": "zoosewu" },
+  "plugins": [
+    {
+      "name": "cc-sync",
+      "source": "./",
+      "description": "Auto two-way sync of Claude Code user config across machines through a private git repo"
+    }
+  ]
+}

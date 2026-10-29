@@ -4,3 +4,4 @@ __pycache__/
 .pytest_cache/
 dist/
 .claude-plugin/types/
+docs/handoff.md

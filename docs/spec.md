@@ -50,7 +50,7 @@ local-only plugin 樣式（初值）：`*-lsp@*`、`herdr-claude-restart@*`、`c
 |---|---|
 | `session.start`（含 herdr resume） | 完整循環；apply 有 plugin 變動 → 自動重啟（見下） |
 | `turn.complete`（僅主 agent） | 完整循環（背景執行，不擋 UI）；有需重啟的變動只 toast，不自動重啟 |
-| `session.end` | 只 commit，push 盡力而為（時間預算短） |
+| `session.end` | 不跑 git：整條鏈只有很短的時間預算，逾時被殺在 `git add` 中途會留下 index.lock；殘留變更由下次 `session.start` 補 commit |
 | `/sync` | `status`／`now`／`confirm`（解除刪除煞車） |
 | `/restart` | `now`／`cancel`，取代 herdr-claude-restart |
 

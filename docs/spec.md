@@ -54,6 +54,7 @@ local-only plugin 樣式（初值）：`*-lsp@*`、`herdr-claude-restart@*`、`c
 | `/sync` | `status`／`now`／`confirm`（解除刪除煞車）／`update`（立即自我更新，含同 marketplace 的 plugin）／`init <url>`（bootstrap）／`remote [url]`（查詢或更換同步位置） |
 
 apply 有 plugin 變動（`needs_restart`）或自我更新升了版 → toast 提示手動重啟；cc-sync 不自動重啟。
+狀態列（`$.ui.status`）只在失敗、刪除煞車、警告時出現；同步正常時清空。
 自我更新只在 session.start（每回合都連網太頻繁）；版本以各 plugin 的 `plugin.json` `version` 判斷，發版必須升該 plugin 的版號。
 
 ## 刪除安全
@@ -86,7 +87,7 @@ apply 有 plugin 變動（`needs_restart`）或自我更新升了版 → toast �
 - 版面：第 1 行 模型│✍️ context%│目錄(分支*)│⏱️ 時長│effort（emoji 寬度各終端不一，算窄會折行、重繪錯位：估算一律算 2 格、帶 VS16，整條寬度再扣 emoji 個數的餘裕）；current │ weekly 用量依 `bodyColumns` 併行：
   全部一行 → 標頭＋用量一行 → 用量分兩行、標籤對齊；與輸入框間的空行是引擎的（負 margin 會讓整條不顯示，不可行）；
   用量條 15 格細線 `━`、半格精度，未用部分為暗色軌道；配色門檻沿用舊腳本
-- cc-sync 狀態不畫進來：cc-sync 自己的 `$.ui.status` 已顯示
+- cc-sync 狀態不畫進來：cc-sync 只在有狀況（失敗、煞車、警告）時用 `$.ui.status` 顯示，健康時清空；最後同步時間看 `/sync status`
 
 ## 測試
 - Python：pytest（export/apply 差異、三方合併、煞車、bootstrap 聯集），以暫存目錄假造 `~/.claude` 與 bare remote

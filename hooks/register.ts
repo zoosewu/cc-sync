@@ -83,17 +83,17 @@ const countChanges = (changes: SyncResult['changes']): string[] =>
     return `${section} ${parts.join(' ')}`
   })
 
-/** 狀態列文字：一眼看出最後一次同步是否健康。 */
-export const statusLine = (r: SyncResult): string =>
+/** 狀態列文字：只在有狀況時出現；健康時為 undefined（清掉，最後同步時間看 /sync status）。 */
+export const statusLine = (r: SyncResult): string | undefined =>
   !r.ok ? `cc-sync ⚠ ${r.error ?? 'failed'}`
   : r.held.length ? `cc-sync ⚠ ${r.held.length} removals held · /sync confirm`
   : r.warnings.length ? `cc-sync ⚠ ${r.warnings.length} warning(s) · /sync status`
-  : `cc-sync ✓ ${hhmm(r.at)}`
+  : undefined
 
 /** /sync 的輸出：完整摘要。 */
 export const summary = (r: SyncResult): string =>
   [
-    `${r.action}: ${r.ok ? 'ok' : `failed — ${r.error}`}`,
+    `${r.action}: ${r.ok ? 'ok' : `failed — ${r.error}`} (${hhmm(r.at)})`,
     r.committed && 'committed local changes',
     r.pushed && 'pushed',
     ...countChanges(r.changes).map(c => `pulled ${c}`),

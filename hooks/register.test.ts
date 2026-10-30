@@ -24,7 +24,8 @@ test('pure helpers', () => {
   expect(parseResult('not json')).toBeNull()
   expect(statusLine({ ...OK, ok: false, error: 'boom' })).toBe('cc-sync ⚠ boom')
   expect(statusLine({ ...OK, held: ['x', 'y'] })).toBe('cc-sync ⚠ 2 removals held · /sync confirm')
-  expect(statusLine(OK)).toMatch(/^cc-sync ✓ \d\d:\d\d$/)
+  expect(statusLine(OK)).toBeUndefined()
+  expect(summary(OK)).toMatch(/^sync: ok \(\d\d:\d\d\)/)
   expect(summary(OK)).toContain('pulled plugins +1 -1')
   expect(summary(OK)).toContain('restart Claude Code')
   expect(updateNotice(UPDATED)).toBe('updated cc-sync 0.1.0 → 0.1.1, cc-statusline 0.1.1 → 0.1.2 — restart Claude Code to apply')
@@ -76,7 +77,7 @@ test('main-loop turns sync, subagent turns do not, /sync waits and summarizes', 
   expect(syncs.length).toBeGreaterThanOrEqual(2)
   expect(syncs.length).toBeLessThanOrEqual(3)
   expect(runs.filter(argv => argv.at(-1) === 'update').length).toBeLessThanOrEqual(1)
-  expect(statuses.at(-1)).toMatch(/^cc-sync ✓/)
+  expect(statuses.at(-1)).toBeUndefined()
 })
 
 test('a subagent turn alone never syncs', async ($, on) => {

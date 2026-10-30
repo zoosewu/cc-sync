@@ -14,6 +14,7 @@ cc-sync：跨機器（Windows／macOS／Linux）雙向同步 Claude Code 使用�
   - `shared.py` 同步狀態模型（純函式）；`apply.py` 套用變更；`os_content.py` OS 專屬內容；
     `core.py` 同步循環／bootstrap／煞車／鎖；`gitops.py` git 包裝
 - `hooks/register.ts`：Claude Code mod（session.start／turn.complete 背景同步、`/sync`）
+- `skills/enhance/`：`/cc-sync:enhance`，任何機器上改進本專案（固定 clone 到 `~/.cache/cc-sync-dev`）；改流程時一併更新
 - repo 根目錄同時是 marketplace（`.claude-plugin/marketplace.json`）與 `cc-sync` plugin
 - `tools/`：一次性維運腳本（環境盤點、清理），uv 單檔腳本
 

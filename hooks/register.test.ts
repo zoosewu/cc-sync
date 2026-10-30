@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import {
-  cliArgv, parseArgs, parseResult, remoteText, statusLine, summary, updateNotice, USAGE,
+  cliArgv, parseArgs, parseResult, remoteText, statusLine, summary, updateNotice, updateText, USAGE,
   type SyncResult, type UpdateResult,
 } from './register.ts'
 
@@ -10,7 +10,13 @@ const OK: SyncResult = {
   changes: { plugins: { added: { 'a@m': true }, removed: ['b@m'], changed: {} } },
   needs_restart: true, warnings: [], error: null, at: 0,
 }
-const UPDATED: UpdateResult = { action: 'update', ok: true, updated: true, from: '0.1.0', to: '0.1.1', error: null }
+const UPDATED: UpdateResult = {
+  action: 'update', ok: true, updated: true, from: '0.1.0', to: '0.1.1', error: null,
+  plugins: [
+    { id: 'cc-sync@cc-sync', from: '0.1.0', to: '0.1.1' },
+    { id: 'cc-statusline@cc-sync', from: '0.1.1', to: '0.1.2' },
+  ],
+}
 
 test('pure helpers', () => {
   expect(cliArgv('/p', ['sync'])).toEqual(['uv', 'run', '--project', '/p', '--frozen', '--quiet', 'cc-sync', 'sync'])
@@ -21,8 +27,10 @@ test('pure helpers', () => {
   expect(statusLine(OK)).toMatch(/^cc-sync ✓ \d\d:\d\d$/)
   expect(summary(OK)).toContain('pulled plugins +1 -1')
   expect(summary(OK)).toContain('restart Claude Code')
-  expect(updateNotice(UPDATED)).toBe('cc-sync updated 0.1.0 → 0.1.1 — restart Claude Code to apply')
-  expect(updateNotice({ ...UPDATED, updated: false })).toBeNull()
+  expect(updateNotice(UPDATED)).toBe('updated cc-sync 0.1.0 → 0.1.1, cc-statusline 0.1.1 → 0.1.2 — restart Claude Code to apply')
+  expect(updateNotice({ ...UPDATED, updated: false, plugins: [] })).toBeNull()
+  expect(updateText({ ...UPDATED, ok: false, plugins: UPDATED.plugins.slice(1), error: 'cc-sync@cc-sync update failed: x' }))
+    .toBe('updated cc-statusline 0.1.1 → 0.1.2 — restart Claude Code to apply\nupdate failed — cc-sync@cc-sync update failed: x')
   expect(parseArgs('')).toEqual({ sub: 'now', value: '' })
   expect(parseArgs('  init  https://example.com/me/data.git ')).toEqual({ sub: 'init', value: 'https://example.com/me/data.git' })
   expect(remoteText({ ...OK, pushed: false, remote: 'u' })).toBe('sync location: u')
@@ -95,12 +103,12 @@ test('session start updates cc-sync after its sync and toasts the new version', 
 })
 
 test('/sync update reports up to date or failure', async ($, on) => {
-  engine(on, OK, { ...UPDATED, updated: false, from: '0.1.1' })
+  engine(on, OK, { ...UPDATED, updated: false, from: '0.1.1', plugins: [] })
   expect((await $.command.run({ command: 'sync', args: 'update' })).text).toBe('cc-sync is up to date (0.1.1)')
 })
 
 test('/sync update shows the failure reason', async ($, on) => {
-  engine(on, OK, { ...UPDATED, ok: false, updated: false, error: 'marketplace update failed: offline' })
+  engine(on, OK, { ...UPDATED, ok: false, updated: false, plugins: [], error: 'marketplace update failed: offline' })
   expect((await $.command.run({ command: 'sync', args: 'update' })).text).toBe('update failed — marketplace update failed: offline')
 })
 

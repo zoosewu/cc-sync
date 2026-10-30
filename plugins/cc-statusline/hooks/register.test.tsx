@@ -31,7 +31,31 @@ test('pure helpers', () => {
   expect(resetTime('2026-11-02T09:00:00', true)).toBe('nov 2, 9:00am')
 })
 
-function engine(on: Parameters<Parameters<typeof test>[1]>[1], opts: { branch?: string; dirty?: boolean; usage?: object } = {}) {
+type Engine = Parameters<Parameters<typeof test>[1]>[0]
+type On = Parameters<Parameters<typeof test>[1]>[1]
+type Opts = { branch?: string; dirty?: boolean; usage?: object }
+
+/**
+ * 啟動 session 後掛上狀態列，回傳整條的文字。
+ * 從 repo 根目錄跑 `claude plugin test .` 時，受測的是 cc-sync（它在 session.start 註冊 /sync），
+ * 不是本 mod：回傳 null，呼叫端略過。本 mod 的測試在 `claude plugin test plugins/cc-statusline` 跑。
+ */
+async function band($: Engine, on: On, opts: Opts, props: Partial<typeof BAND.props> = {}): Promise<string | null> {
+  let underCcSync = false
+  on('command.register', () => {
+    underCcSync = true
+    return { value: { command: 'sync' } }
+  })
+  engine(on, opts)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  if (underCcSync) return null
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal', props: { ...BAND.props, ...props } })
+  const text = ((await ui.find({ type: 'Box' })) ?? (await ui.find({ type: 'Text' })))?.text ?? ''
+  await ui.unmount()
+  return text
+}
+
+function engine(on: On, opts: Opts = {}) {
   const start = 1_000_000
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/work/cc-sync' }))
@@ -59,63 +83,44 @@ function engine(on: Parameters<Parameters<typeof test>[1]>[1], opts: { branch?: 
 }
 
 test('the band draws both lines from the session', async ($, on) => {
-  engine(on, { branch: 'main', dirty: true })
-  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-
-  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  const all = (await ui.find({ type: 'Box' }))?.text ?? ''
+  const all = await band($, on, { branch: 'main', dirty: true })
+  if (all === null) return
   expect(all).toContain('Opus 5.5')
   expect(all).toContain('✍️ 23%')
   expect(all).toContain('cc-sync (main*)')
   expect(all).toContain('1h5m')
   expect(all).toContain('● high')
   expect(all).toContain(`current ━━━━━━╸${'━'.repeat(8)}  42% ⟳ 5:05pm │ weekly ${'━'.repeat(15)}  92% ⟳ nov 2, 9:00am`)
-  await ui.unmount()
 })
 
 test('a wide band puts everything on one line', async ($, on) => {
-  engine(on, { branch: 'main' })
-  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-
-  const ui = await $.ui.mount({ ...BAND, surface: 'terminal', props: { ...BAND.props, bodyColumns: 200 } })
-  const all = (await ui.find({ type: 'Box' }))?.text ?? ''
+  const all = await band($, on, { branch: 'main' }, { bodyColumns: 200 })
+  if (all === null) return
   expect(all).toContain('● high │ current ━')
-  await ui.unmount()
 })
 
 test('a narrow band puts the limits on two aligned lines', async ($, on) => {
-  engine(on, { branch: 'main' })
-  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-
-  const ui = await $.ui.mount({ ...BAND, surface: 'terminal', props: { ...BAND.props, bodyColumns: 60 } })
-  const all = (await ui.find({ type: 'Box' }))?.text ?? ''
+  const all = await band($, on, { branch: 'main' }, { bodyColumns: 60 })
+  if (all === null) return
   expect(all).not.toContain('5:05pm │ weekly')
   expect(all).toContain('current ━')
   expect(all).toContain('weekly  ━')
-  await ui.unmount()
 })
 
 test('outside git and before any rate-limit reading, only the first line', async ($, on) => {
-  engine(on, { usage: { startedAt: 0, context: { window: 200_000 }, rateLimits: [] } })
-  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-
-  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  const all = (await ui.find({ type: 'Box' }))?.text ?? ''
+  const all = await band($, on, { usage: { startedAt: 0, context: { window: 200_000 }, rateLimits: [] } })
+  if (all === null) return
   expect(all).toContain('cc-sync')
   expect(all).not.toContain('(')
   expect(all).not.toContain('current')
-  await ui.unmount()
 })
 
 test('a survey takes the band', async ($, on) => {
-  engine(on, { branch: 'main' })
   on('ui.render', ($, e) => {
     const { Text } = $.ui.resolve(e)
     return <Text>engine</Text>
   })
-  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-
-  const ui = await $.ui.mount({ ...BAND, surface: 'terminal', props: { ...BAND.props, hasSurvey: true } })
-  expect((await ui.find({ type: 'Text' }))?.text).toBe('engine')
-  await ui.unmount()
+  const all = await band($, on, { branch: 'main' }, { hasSurvey: true })
+  if (all === null) return
+  expect(all).toBe('engine')
 })

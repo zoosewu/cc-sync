@@ -12,7 +12,7 @@ cc-sync：跨機器（Windows／macOS／Linux）雙向同步 Claude Code 使用�
 ## 結構
 - `src/cc_sync/`：Python CLI（`cc-sync bootstrap|sync|status|remote|update`，輸出一行 JSON）
   - `shared.py` 同步狀態模型（純函式）；`apply.py` 套用變更；`os_content.py` OS 專屬內容；
-    `core.py` 同步循環／bootstrap／remote／煞車／鎖；`gitops.py` git 包裝；`selfupdate.py` 自我更新
+    `core.py` 同步循環／bootstrap／remote／煞車／鎖；`gitops.py` git 包裝；`selfupdate.py` 自我更新（同 marketplace 的所有已安裝 plugin）
 - `hooks/register.ts`：Claude Code mod（session.start／turn.complete 背景同步、session.start 後自我更新、`/sync`）
 - `skills/enhance/`：`/cc-sync:enhance`，任何機器上改進本專案（固定 clone 到 `~/.cache/cc-sync-dev`）；改流程時一併更新
 - repo 根目錄同時是 marketplace（`.claude-plugin/marketplace.json`）與 `cc-sync` plugin
@@ -21,7 +21,8 @@ cc-sync：跨機器（Windows／macOS／Linux）雙向同步 Claude Code 使用�
 
 ## 驗證
 - `uv run pytest`（整合測試以 bare repo 模擬多台機器、假 claude CLI）
-- `claude plugin validate .` 與 `claude plugin test .`
+- `claude plugin validate .` 與 `claude plugin test .`；cc-statusline 另跑 `claude plugin test plugins/cc-statusline`
+  （根目錄的 test 也會掃到它的測試檔，但受測的是 cc-sync，那些狀態列測試會自行略過）
 - mod 型別檢查：tsconfig 依型別檔開頭範本，放在 repo 外，`files` 指向型別檔與 `hooks/register.ts`
 
 ## Mod 陷阱

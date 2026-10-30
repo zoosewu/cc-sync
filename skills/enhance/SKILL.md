@@ -24,18 +24,19 @@ disable-model-invocation: true
 依需求修改；行為變了就同步更新 `docs/spec.md`，並補對應的 pytest 或 mod 測試。
 
 ## 4. 驗證
-在 repo 根目錄依序執行，三者全綠才往下：
+在 repo 根目錄依序執行，全綠才往下：
 - `uv run pytest`
 - `claude plugin validate .`
 - `claude plugin test .`
+- 動到 `plugins/<name>/` 時：`claude plugin validate plugins/<name>` 與 `claude plugin test plugins/<name>`
 
 ## 5. 發版
-1. `.claude-plugin/plugin.json` 的 `version` patch 加一（`claude plugin update` 依版本判斷有無新版）。
+1. 改到的每個 plugin，其 `plugin.json` 的 `version` patch 加一（根目錄 `.claude-plugin/` 是 cc-sync、`plugins/<name>/.claude-plugin/` 是其他；`claude plugin update` 依版本判斷有無新版）。
 2. 列出變更摘要與 diff stat，徵得同意後 commit、push 到 `main`。
 
 ## 6. 更新本機
 ```
 claude plugin marketplace update cc-sync
-claude plugin update cc-sync@cc-sync
+claude plugin update <改到的 plugin>@cc-sync
 ```
-告訴使用者：重啟 Claude Code 生效；其他機器執行同樣兩行再重啟。
+告訴使用者：重啟 Claude Code 生效；其他機器在下次 session 開始時會自動更新（cc-sync 自我更新涵蓋同 marketplace 的所有已安裝 plugin），再重啟一次即可。

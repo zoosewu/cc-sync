@@ -51,7 +51,7 @@ Inside Claude Code:
 | `/sync confirm` | push removals held by the brake |
 | `/sync init <git-url>` | seed or join a sync repo |
 | `/sync remote [git-url]` | show, or move, the sync location |
-| `/sync update` | update cc-sync now (it also updates itself after each session-start sync) |
+| `/sync update` | update cc-sync and the other installed plugins from its marketplace now (also done after each session-start sync) |
 
 The same CLI without the plugin:
 

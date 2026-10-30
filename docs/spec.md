@@ -48,13 +48,13 @@ local-only plugin 樣式（初值）：`*-lsp@*`、`herdr-claude-restart@*`、`c
 ## 觸發點（cc-sync mod）
 | 事件 | 動作 |
 |---|---|
-| `session.start` | 完整循環；結束後 `cc-sync update` 自我更新（marketplace update → `claude plugin update`），有新版 toast 提示重啟 |
+| `session.start` | 完整循環；結束後 `cc-sync update` 自我更新：marketplace update → 對本 marketplace 已安裝的每個 plugin（cc-sync、cc-statusline…）`claude plugin update`；單一 plugin 失敗不影響其他；有新版 toast 列出升版項目、提示重啟 |
 | `turn.complete`（僅主 agent） | 完整循環（背景執行，不擋 UI） |
 | `session.end` | 不跑 git：整條鏈只有很短的時間預算，逾時被殺在 `git add` 中途會留下 index.lock；殘留變更由下次 `session.start` 補 commit |
-| `/sync` | `status`／`now`／`confirm`（解除刪除煞車）／`update`（立即自我更新）／`init <url>`（bootstrap）／`remote [url]`（查詢或更換同步位置） |
+| `/sync` | `status`／`now`／`confirm`（解除刪除煞車）／`update`（立即自我更新，含同 marketplace 的 plugin）／`init <url>`（bootstrap）／`remote [url]`（查詢或更換同步位置） |
 
 apply 有 plugin 變動（`needs_restart`）或自我更新升了版 → toast 提示手動重啟；cc-sync 不自動重啟。
-自我更新只在 session.start（每回合都連網太頻繁）；版本以 `plugin.json` 的 `version` 判斷，發版必須升版號。
+自我更新只在 session.start（每回合都連網太頻繁）；版本以各 plugin 的 `plugin.json` `version` 判斷，發版必須升該 plugin 的版號。
 
 ## 刪除安全
 - **bootstrap（加入）採聯集**：`~/.claude/.git` 不存在即視為加入；只增不刪；同路徑檔案衝突以 repo 為準，本機版本備份到 `~/.claude/.cc-sync-backup/<時間>/`；偏好 key 以 repo 為準

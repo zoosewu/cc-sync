@@ -24,8 +24,11 @@ export type UpdateResult = {
   action: 'update'
   ok: boolean
   updated: boolean
+  /** cc-sync 本身的版本 */
   from: string | null
   to: string | null
+  /** 這次有升版的 plugin（同 marketplace） */
+  plugins: { id: string; from: string | null; to: string | null }[]
   error: string | null
 }
 
@@ -59,7 +62,14 @@ export const remoteText = (r: SyncResult): string =>
 
 /** 自我更新的提示；沒升級時為 null。 */
 export const updateNotice = (r: UpdateResult): string | null =>
-  r.updated ? `cc-sync updated ${r.from} → ${r.to} — restart Claude Code to apply` : null
+  r.updated
+    ? `updated ${r.plugins.map(p => `${p.id.split('@')[0]} ${p.from} → ${p.to}`).join(', ')} — restart Claude Code to apply`
+    : null
+
+/** /sync update 的輸出：升版提示與失敗原因可同時出現（部分 plugin 失敗）。 */
+export const updateText = (r: UpdateResult): string =>
+  [updateNotice(r), r.error && `update failed — ${r.error}`].filter(Boolean).join('\n')
+  || `cc-sync is up to date (${r.to})`
 
 const hhmm = (epochSeconds: number): string => new Date(epochSeconds * 1000).toTimeString().slice(0, 5)
 
@@ -181,11 +191,7 @@ export const register: Register = on => {
     }
     if (arg === 'update') {
       const u = await run<UpdateResult>($, ['update'])
-      return {
-        text: !u ? 'cc-sync: no result (see status line)'
-          : !u.ok ? `update failed — ${u.error}`
-          : updateNotice(u) ?? `cc-sync is up to date (${u.to})`,
-      }
+      return { text: u ? updateText(u) : 'cc-sync: no result (see status line)' }
     }
     const r = await run($, arg === 'confirm' ? ['sync', '--force'] : ['sync'])
     report($, r)

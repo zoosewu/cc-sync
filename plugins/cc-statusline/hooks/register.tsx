@@ -27,6 +27,8 @@ const LIMITS = [
   { label: 'current', kind: 'five_hour', withDate: false },
   { label: 'weekly', kind: 'seven_day', withDate: true },
 ]
+// 折行判斷預留的欄數，吸收字型寬度誤差
+const SAFETY_COLS = 2
 const GIT_TIMEOUT_MS = 5_000
 const TICK_MS = 60_000
 
@@ -160,18 +162,19 @@ export const register: Register = on => {
       return [{ label, pct, pctText: `${String(pct).padStart(3)}%`, ...bar(pct), reset: resetTime(l.resetsAt, withDate) }]
     })
     const dur = snap.startedAt ? duration(now - snap.startedAt) : ''
-    // 寬度估算（✍️ 字串長度 2 恰等於顯示寬度）；放得下就併行：全部一行 → 標頭＋用量一行 → 用量分兩行、標籤對齊
+    // 放得下就併行：全部一行 → 標頭＋用量一行 → 用量分兩行、標籤對齊。
+    // 只用寬度確定為 1 的字元：emoji（✍️、⏱）在各終端寬度不一，算錯會折行並讓重繪錯位
     const headerWidth = [
-      modelLabel(snap.model), `✍️ ${snap.contextPct}%`,
+      modelLabel(snap.model), `ctx ${snap.contextPct}%`,
       snap.dir + (snap.branch ? ` (${snap.branch}${snap.dirty ? '*' : ''})` : ''),
-      ...(dur ? [`⏱ ${dur}`] : []), `${effort.glyph} ${snap.effort}`,
+      ...(dur ? [dur] : []), `${effort.glyph} ${snap.effort}`,
     ].join(' │ ').length
     const limitsWidth = limits.reduce((w, x) =>
       w + x.label.length + 1 + BAR_WIDTH + 1 + x.pctText.length + (x.reset ? 3 + x.reset.length : 0), 3 * (limits.length - 1))
     const cols = e.props.bodyColumns
     const layout = limits.length === 0 ? 'none'
-      : headerWidth + 3 + limitsWidth <= cols ? 'single'
-      : limitsWidth <= cols ? 'two'
+      : headerWidth + 3 + limitsWidth <= cols - SAFETY_COLS ? 'single'
+      : limitsWidth <= cols - SAFETY_COLS ? 'two'
       : 'three'
     const labelPad = layout === 'three' ? Math.max(0, ...limits.map(x => x.label.length)) : 0
     const limitText = limits.map(x => (
@@ -189,13 +192,13 @@ export const register: Register = on => {
         <Text wrap="truncate-end">
           <Text color={COLOR.blue}>{modelLabel(snap.model)}</Text>
           {sep}
-          <Text>✍️ </Text><Text color={pctColor(snap.contextPct)}>{snap.contextPct}%</Text>
+          <Text dimColor>ctx </Text><Text color={pctColor(snap.contextPct)}>{snap.contextPct}%</Text>
           {sep}
           <Text color={COLOR.cyan}>{snap.dir}</Text>
           {snap.branch
             ? <Text color={COLOR.green}> ({snap.branch}{snap.dirty ? <Text color={COLOR.red}>*</Text> : null})</Text>
             : null}
-          {dur ? <Text>{sep}<Text dimColor>⏱ </Text><Text color={COLOR.white}>{dur}</Text></Text> : null}
+          {dur ? <Text>{sep}<Text color={COLOR.white}>{dur}</Text></Text> : null}
           {sep}
           <Text color={effort.color} dimColor={!effort.color}>{effort.glyph} {snap.effort}</Text>
           {layout === 'single' ? <Text>{sep}{joined}</Text> : null}

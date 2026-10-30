@@ -65,7 +65,7 @@ test('the band draws both lines from the session', async ($, on) => {
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   const all = (await ui.find({ type: 'Box' }))?.text ?? ''
   expect(all).toContain('Opus 5.5')
-  expect(all).toContain('ctx 23%')
+  expect(all).toContain('✍️ 23%')
   expect(all).toContain('cc-sync (main*)')
   expect(all).toContain('1h5m')
   expect(all).toContain('● high')

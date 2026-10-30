@@ -27,8 +27,10 @@ const LIMITS = [
   { label: 'current', kind: 'five_hour', withDate: false },
   { label: 'weekly', kind: 'seven_day', withDate: true },
 ]
-// 折行判斷預留的欄數，吸收字型寬度誤差
-const SAFETY_COLS = 2
+// 都帶 VS16（U+FE0F）要求 emoji 顯示：字串長度 2＝估算寬度 2
+const ICON = { context: '✍️', time: '⏱️' } as const
+// 整條比可用寬度窄的欄數：每個 emoji 若被引擎量窄 1 格，仍不會碰到右緣而折行
+const SAFETY_COLS = Object.keys(ICON).length
 const GIT_TIMEOUT_MS = 5_000
 const TICK_MS = 60_000
 
@@ -163,18 +165,19 @@ export const register: Register = on => {
     })
     const dur = snap.startedAt ? duration(now - snap.startedAt) : ''
     // 放得下就併行：全部一行 → 標頭＋用量一行 → 用量分兩行、標籤對齊。
-    // 只用寬度確定為 1 的字元：emoji（✍️、⏱）在各終端寬度不一，算錯會折行並讓重繪錯位
+    // emoji 寬度各終端不一（算窄了會折行、重繪錯位）：估算時一律算 2 格（字串長度恰為 2），
+    // 整條再比可用寬度窄 SAFETY_COLS，連引擎自己的截斷也留出餘裕
     const headerWidth = [
-      modelLabel(snap.model), `ctx ${snap.contextPct}%`,
+      modelLabel(snap.model), `${ICON.context} ${snap.contextPct}%`,
       snap.dir + (snap.branch ? ` (${snap.branch}${snap.dirty ? '*' : ''})` : ''),
-      ...(dur ? [dur] : []), `${effort.glyph} ${snap.effort}`,
+      ...(dur ? [`${ICON.time} ${dur}`] : []), `${effort.glyph} ${snap.effort}`,
     ].join(' │ ').length
     const limitsWidth = limits.reduce((w, x) =>
       w + x.label.length + 1 + BAR_WIDTH + 1 + x.pctText.length + (x.reset ? 3 + x.reset.length : 0), 3 * (limits.length - 1))
-    const cols = e.props.bodyColumns
+    const cols = Math.max(1, e.props.bodyColumns - SAFETY_COLS)
     const layout = limits.length === 0 ? 'none'
-      : headerWidth + 3 + limitsWidth <= cols - SAFETY_COLS ? 'single'
-      : limitsWidth <= cols - SAFETY_COLS ? 'two'
+      : headerWidth + 3 + limitsWidth <= cols ? 'single'
+      : limitsWidth <= cols ? 'two'
       : 'three'
     const labelPad = layout === 'three' ? Math.max(0, ...limits.map(x => x.label.length)) : 0
     const limitText = limits.map(x => (
@@ -188,17 +191,17 @@ export const register: Register = on => {
     const joined = limitText.map((t, i) => <Text key={String(i)}>{i ? sep : null}{t}</Text>)
 
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" width={cols}>
         <Text wrap="truncate-end">
           <Text color={COLOR.blue}>{modelLabel(snap.model)}</Text>
           {sep}
-          <Text dimColor>ctx </Text><Text color={pctColor(snap.contextPct)}>{snap.contextPct}%</Text>
+          <Text>{ICON.context} </Text><Text color={pctColor(snap.contextPct)}>{snap.contextPct}%</Text>
           {sep}
           <Text color={COLOR.cyan}>{snap.dir}</Text>
           {snap.branch
             ? <Text color={COLOR.green}> ({snap.branch}{snap.dirty ? <Text color={COLOR.red}>*</Text> : null})</Text>
             : null}
-          {dur ? <Text>{sep}<Text color={COLOR.white}>{dur}</Text></Text> : null}
+          {dur ? <Text>{sep}<Text dimColor>{ICON.time} </Text><Text color={COLOR.white}>{dur}</Text></Text> : null}
           {sep}
           <Text color={effort.color} dimColor={!effort.color}>{effort.glyph} {snap.effort}</Text>
           {layout === 'single' ? <Text>{sep}{joined}</Text> : null}

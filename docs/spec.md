@@ -83,7 +83,7 @@ apply 有 plugin 變動（`needs_restart`）或自我更新升了版 → toast �
 | effort | 啟動時讀 settings `effortLevel`，之後以主迴圈 `turn.step` 實際送出的值為準 |
 | 目錄、git 分支／dirty | `$.session.cwd()`；`$.process.run` 跑 git，只在 session.start 與 turn.complete，不在繪製時 |
 - 資料放模組變數，變動時 `$.ui.invalidate('ui.render')`；熱重載重跑 session.start 補回
-- 版面：第 1 行 模型│ctx context%│目錄(分支*)│時長│effort（不用 emoji：各終端寬度不一，算錯會折行、重繪錯位；併行判斷另留 2 欄餘裕）；current │ weekly 用量依 `bodyColumns` 併行：
+- 版面：第 1 行 模型│✍️ context%│目錄(分支*)│⏱️ 時長│effort（emoji 寬度各終端不一，算窄會折行、重繪錯位：估算一律算 2 格、帶 VS16，整條寬度再扣 emoji 個數的餘裕）；current │ weekly 用量依 `bodyColumns` 併行：
   全部一行 → 標頭＋用量一行 → 用量分兩行、標籤對齊；與輸入框間的空行是引擎的（負 margin 會讓整條不顯示，不可行）；
   用量條 15 格細線 `━`、半格精度，未用部分為暗色軌道；配色門檻沿用舊腳本
 - cc-sync 狀態不畫進來：cc-sync 自己的 `$.ui.status` 已顯示

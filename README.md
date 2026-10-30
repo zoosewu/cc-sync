@@ -63,6 +63,18 @@ uvx --from git+https://github.com/zoosewu/cc-sync cc-sync status | remote [git-u
 
 The config directory defaults to `~/.claude`; set `CLAUDE_CONFIG_DIR` or pass `--root` to use another.
 
+## cc-statusline (optional)
+
+A second plugin in the same marketplace draws a status band above the prompt: model, context %,
+directory and git branch, session time, effort, and the 5-hour / 7-day usage bars with reset times.
+It reads everything from Claude Code itself (no token files, no extra API calls).
+
+```sh
+claude plugin install cc-statusline@cc-sync
+```
+
+Enabled on one machine, it reaches the others through the sync.
+
 ## Safety
 
 - Joining is a union: nothing local is removed; conflicting files are backed up to `.cc-sync-backup/`.

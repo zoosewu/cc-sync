@@ -72,20 +72,21 @@ apply 有 plugin 變動（`needs_restart`）或自我更新升了版 → toast �
 → init/fetch → 首台（remote 為空）播種；其他台聯集加入 → `marketplace add zoosewu/cc-sync` + `install cc-sync` → apply
 播種順序：W1（plugin 最完整）→ W2 → L。W2、L 加入後自動補裝 mattpocock-skills、commit-commands、context7。
 
-## cc-statusline（獨立 plugin，同 marketplace，經 enabledPlugins 同步）
-以 mod 實作，畫在 `AbovePrompt`；取代各機 statusline.ps1／.sh（mod 穩定後各機移除 `statusLine` 與舊腳本）。
+## cc-statusline（獨立 plugin `plugins/cc-statusline/`，同 marketplace，經 enabledPlugins 同步）
+以 mod 實作，畫在 `AbovePrompt`；取代各機 statusline.ps1／.sh（啟用後各機移除 `statusLine` 與舊腳本）。
 | 項目 | 來源 |
 |---|---|
-| context % | `$.session.usage().context` |
-| 5h／7d 用量與重置時間 | `$.session.usage().rateLimits`（不再讀 token、不打 OAuth API） |
-| session 時長 | `startedAt` |
-| 費用 | `cost` |
-| effort | 回合事件的實際 effort |
-| 模型名 | 實作時確認來源 |
-| git 分支／dirty | `$.process.run`，僅 `turn.complete` 與切換目錄時更新並快取 |
-| cc-sync 狀態 | 例 `⟳ 2m`、`⚠ push failed` |
-- 更新：`session.measure` 推送觸發重繪，不輪詢、不啟動程序
-- 版面沿用現有：第 1 行 模型│context%│目錄(分支*)│時長│effort；空行後 current／weekly 用量條；配色與符號照舊
+| 模型名 | `$.session.model()`；`claude-<family>-<x>-<y>[1m]` 轉為 `Family x.y (1M)` |
+| context % | `$.session.usage().context.percent`，`session.measure` 推送更新 |
+| 5h／7d 用量與重置時間 | `rateLimits` 的 `five_hour`／`seven_day`（不讀 token、不打 OAuth API；舊腳本的 extra usage 無來源，不顯示） |
+| session 時長 | `startedAt`；每分鐘 `$.ui.invalidate` 重繪 |
+| effort | 啟動時讀 settings `effortLevel`，之後以主迴圈 `turn.step` 實際送出的值為準 |
+| 目錄、git 分支／dirty | `$.session.cwd()`；`$.process.run` 跑 git，只在 session.start 與 turn.complete，不在繪製時 |
+- 資料放模組變數，變動時 `$.ui.invalidate('ui.render')`；熱重載重跑 session.start 補回
+- 版面：第 1 行 模型│✍️ context%│目錄(分支*)│⏱ 時長│effort；current │ weekly 用量依 `bodyColumns` 併行：
+  全部一行 → 標頭＋用量一行 → 用量分兩行、標籤對齊；與輸入框間的空行是引擎的（負 margin 會讓整條不顯示，不可行）；
+  用量條 15 格細線 `━`、半格精度，未用部分為暗色軌道；配色門檻沿用舊腳本
+- cc-sync 狀態不畫進來：cc-sync 自己的 `$.ui.status` 已顯示
 
 ## 測試
 - Python：pytest（export/apply 差異、三方合併、煞車、bootstrap 聯集），以暫存目錄假造 `~/.claude` 與 bare remote

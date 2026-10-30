@@ -16,6 +16,7 @@ cc-sync：跨機器（Windows／macOS／Linux）雙向同步 Claude Code 使用�
 - `hooks/register.ts`：Claude Code mod（session.start／turn.complete 背景同步、session.start 後自我更新、`/sync`）
 - `skills/enhance/`：`/cc-sync:enhance`，任何機器上改進本專案（固定 clone 到 `~/.cache/cc-sync-dev`）；改流程時一併更新
 - repo 根目錄同時是 marketplace（`.claude-plugin/marketplace.json`）與 `cc-sync` plugin
+- `plugins/cc-statusline/`：第二個 plugin（AbovePrompt 狀態列 mod），驗證與型別檢查同 cc-sync mod
 - `tools/`：一次性維運腳本（環境盤點、清理），uv 單檔腳本
 
 ## 驗證

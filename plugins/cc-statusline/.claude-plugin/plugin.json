@@ -1,0 +1,6 @@
+{
+  "name": "cc-statusline",
+  "version": "0.1.0",
+  "description": "Status band above the prompt: model, context, directory and branch, session time, effort, and 5h/7d usage",
+  "author": { "name": "zoosewu" }
+}

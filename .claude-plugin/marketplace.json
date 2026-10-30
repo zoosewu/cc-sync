@@ -7,6 +7,11 @@
       "name": "cc-sync",
       "source": "./",
       "description": "Auto two-way sync of Claude Code user config across machines through a private git repo"
+    },
+    {
+      "name": "cc-statusline",
+      "source": "./plugins/cc-statusline",
+      "description": "Status band above the prompt: model, context, directory and branch, session time, effort, and 5h/7d usage"
     }
   ]
 }

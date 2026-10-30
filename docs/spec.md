@@ -2,7 +2,7 @@
 
 ## 目標
 多台機器（W1、W2 Windows；L WSL container；未來 macOS）的 Claude Code 使用者設定自動雙向同步：
-新增與刪除都會傳播；不需手動操作；herdr 內可自動重啟並 resume。所有腳本走 uv。
+新增與刪除都會傳播；不需手動操作。所有腳本走 uv。
 
 ## 兩個 repo
 | repo | 內容 | 可見度 |
@@ -48,17 +48,13 @@ local-only plugin 樣式（初值）：`*-lsp@*`、`herdr-claude-restart@*`、`c
 ## 觸發點（cc-sync mod）
 | 事件 | 動作 |
 |---|---|
-| `session.start`（含 herdr resume） | 完整循環；apply 有 plugin 變動 → 自動重啟（見下） |
-| `turn.complete`（僅主 agent） | 完整循環（背景執行，不擋 UI）；有需重啟的變動只 toast，不自動重啟 |
+| `session.start` | 完整循環；結束後 `cc-sync update` 自我更新（marketplace update → `claude plugin update`），有新版 toast 提示重啟 |
+| `turn.complete`（僅主 agent） | 完整循環（背景執行，不擋 UI） |
 | `session.end` | 不跑 git：整條鏈只有很短的時間預算，逾時被殺在 `git add` 中途會留下 index.lock；殘留變更由下次 `session.start` 補 commit |
-| `/sync` | `status`／`now`／`confirm`（解除刪除煞車） |
-| `/restart` | `now`／`cancel`，取代 herdr-claude-restart |
+| `/sync` | `status`／`now`／`confirm`（解除刪除煞車）／`update`（立即自我更新） |
 
-## 重啟
-- 只在 `session.start` 自動重啟（剛開始、無進行中工作）；回合中只提示
-- herdr 內（`HERDR_ENV=1`）：mod 等回合結束且無背景工作 → 執行 `/exit`；`session.end` 時啟動 detached
-  `uv run` helper：psutil 找到 claude 程序與原始參數 → 等它結束 → `herdr pane run $HERDR_PANE_ID "claude <原參數> --resume <id>"`
-- herdr 外：toast 提示手動重啟
+apply 有 plugin 變動（`needs_restart`）或自我更新升了版 → toast 提示手動重啟；cc-sync 不自動重啟。
+自我更新只在 session.start（每回合都連網太頻繁）；版本以 `plugin.json` 的 `version` 判斷，發版必須升版號。
 
 ## 刪除安全
 - **bootstrap（加入）採聯集**：`~/.claude/.git` 不存在即視為加入；只增不刪；同路徑檔案衝突以 repo 為準，本機版本備份到 `~/.claude/.cc-sync-backup/<時間>/`；偏好 key 以 repo 為準
@@ -90,11 +86,10 @@ local-only plugin 樣式（初值）：`*-lsp@*`、`herdr-claude-restart@*`、`c
 - mod：`claude plugin test`
 
 ## 實作時需驗證的未知
-1. skills／CLAUDE.md 變更是否免重啟即生效（決定哪些變動觸發重啟）
-2. mod 能否觸發 `/exit`（herdr-claude-restart 可，需確認用法）
-3. mod 如何取得 plugin 自身目錄（以呼叫 `uv run`）
-4. Windows 上 psutil 找 claude 程序與參數；herdr Windows beta 的 `pane run`
-5. `claude plugin install` 在 session 進行中執行的行為
+1. skills／CLAUDE.md 變更是否免重啟即生效（決定哪些變動要提示重啟）
+2. mod 如何取得 plugin 自身目錄（以呼叫 `uv run`）
+3. `claude plugin install` 在 session 進行中執行的行為
+4. 自我更新後舊版安裝目錄是否立即刪除（會讓本 session 的 mod 在重啟前呼叫不到 CLI）
 
 ## 資料遷移（加入時一次性）
 - L 的 `CLAUDE.md` 第 4 節「CLI Tools」→ `os/linux.md` 與 `os/macos.md`
@@ -102,4 +97,4 @@ local-only plugin 樣式（初值）：`*-lsp@*`、`herdr-claude-restart@*`、`c
 
 ## 開發
 - 本機路徑 `D:\Code\Project\cc-sync`
-- 實作順序：sync 核心（Python + pytest）→ cc-sync mod → bootstrap 與 W1 播種 → W2／L 加入 → 重啟／herdr → cc-statusline
+- 實作順序：sync 核心（Python + pytest）→ cc-sync mod → bootstrap 與 W1 播種 → W2／L 加入 → cc-statusline

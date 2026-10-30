@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import core, jsonio
+from . import core, jsonio, selfupdate
 from .paths import Paths, default_root
 
 
@@ -42,7 +42,13 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--no-pull", action="store_true", help="commit (and push) only")
     s.add_argument("--no-push", action="store_true")
     sub.add_parser("status", help="last sync result")
+    sub.add_parser("update", help="update the cc-sync plugin to the latest version")
     args = ap.parse_args(argv)
+
+    if args.cmd == "update":
+        data = selfupdate.run(claude_cli)
+        _print(data, args.human)
+        return 0 if data["ok"] else 1
 
     paths = Paths(Path(args.root) if args.root else default_root())
     if args.cmd == "bootstrap":

@@ -1,12 +1,13 @@
 import { expect, test } from 'claude-code/testing'
 
-import { cliArgv, parseResult, statusLine, summary, type SyncResult } from './register.ts'
+import { cliArgv, parseResult, statusLine, summary, updateNotice, type SyncResult, type UpdateResult } from './register.ts'
 
 const OK: SyncResult = {
   action: 'sync', ok: true, committed: true, pushed: true, held: [],
   changes: { plugins: { added: { 'a@m': true }, removed: ['b@m'], changed: {} } },
   needs_restart: true, warnings: [], error: null, at: 0,
 }
+const UPDATED: UpdateResult = { action: 'update', ok: true, updated: true, from: '0.1.0', to: '0.1.1', error: null }
 
 test('pure helpers', () => {
   expect(cliArgv('/p', ['sync'])).toEqual(['uv', 'run', '--project', '/p', '--frozen', '--quiet', 'cc-sync', 'sync'])
@@ -17,24 +18,31 @@ test('pure helpers', () => {
   expect(statusLine(OK)).toMatch(/^cc-sync ✓ \d\d:\d\d$/)
   expect(summary(OK)).toContain('pulled plugins +1 -1')
   expect(summary(OK)).toContain('restart Claude Code')
+  expect(updateNotice(UPDATED)).toBe('cc-sync updated 0.1.0 → 0.1.1 — restart Claude Code to apply')
+  expect(updateNotice({ ...UPDATED, updated: false })).toBeNull()
 })
 
-function engine(on: Parameters<Parameters<typeof test>[1]>[1], result: SyncResult) {
+function engine(on: Parameters<Parameters<typeof test>[1]>[1], result: SyncResult, update: UpdateResult = UPDATED) {
   const runs: string[][] = []
   const statuses: (string | undefined)[] = []
+  const toasts: string[] = []
   on('command.register', () => ({ value: { command: 'sync' } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('turn.complete', () => ({ text: '' }))
   on('process.run', (_, e) => {
     runs.push([...e.argv])
-    return { value: { exitCode: 0, stdout: JSON.stringify(result), stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+    const out = e.argv.at(-1) === 'update' ? update : result
+    return { value: { exitCode: 0, stdout: JSON.stringify(out), stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
   })
   on('ui.status', (_, e) => {
     statuses.push(e.text)
     return { value: undefined }
   })
-  on('ui.toast', () => ({ value: undefined }))
-  return { runs, statuses }
+  on('ui.toast', (_, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
+  return { runs, statuses, toasts }
 }
 
 const TURN = { answer: '', durationMs: 1, isAborted: false, turnId: 't', reason: 'answer' } as const
@@ -47,10 +55,11 @@ test('main-loop turns sync, subagent turns do not, /sync waits and summarizes', 
 
   const { text } = await $.command.run({ command: 'sync', args: 'now' })
   expect(text).toContain('sync: ok')
-  // session.start + 主迴圈一次（子 agent 不觸發，進行中的請求合併）+ /sync
-  expect(runs.every(argv => argv.slice(-1)[0] === 'sync')).toBe(true)
-  expect(runs.length).toBeGreaterThanOrEqual(2)
-  expect(runs.length).toBeLessThanOrEqual(3)
+  // session.start + 主迴圈一次（子 agent 不觸發，進行中的請求合併）+ /sync；另有 session.start 後的一次 update
+  const syncs = runs.filter(argv => argv.at(-1) === 'sync')
+  expect(syncs.length).toBeGreaterThanOrEqual(2)
+  expect(syncs.length).toBeLessThanOrEqual(3)
+  expect(runs.filter(argv => argv.at(-1) === 'update').length).toBeLessThanOrEqual(1)
   expect(statuses.at(-1)).toMatch(/^cc-sync ✓/)
 })
 
@@ -66,4 +75,23 @@ test('/sync confirm forces, /sync rejects unknown args', async ($, on) => {
   expect((await $.command.run({ command: 'sync', args: 'confirm' })).text).toContain('pushed')
   expect(runs.at(-1)?.slice(-2)).toEqual(['sync', '--force'])
   expect((await $.command.run({ command: 'sync', args: 'bogus' })).text).toContain('usage')
+})
+
+test('session start updates cc-sync after its sync and toasts the new version', async ($, on) => {
+  const { runs, toasts } = engine(on, { ...OK, needs_restart: false })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'sync', args: 'status' })  // 讓背景工作有機會跑完
+  const order = runs.map(argv => argv.at(-1))
+  expect(order.indexOf('update')).toBeGreaterThan(order.indexOf('sync'))
+  expect(toasts).toContain(updateNotice(UPDATED))
+})
+
+test('/sync update reports up to date or failure', async ($, on) => {
+  engine(on, OK, { ...UPDATED, updated: false, from: '0.1.1' })
+  expect((await $.command.run({ command: 'sync', args: 'update' })).text).toBe('cc-sync is up to date (0.1.1)')
+})
+
+test('/sync update shows the failure reason', async ($, on) => {
+  engine(on, OK, { ...UPDATED, ok: false, updated: false, error: 'marketplace update failed: offline' })
+  expect((await $.command.run({ command: 'sync', args: 'update' })).text).toBe('update failed — marketplace update failed: offline')
 })

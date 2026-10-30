@@ -29,12 +29,15 @@ uvx --from git+https://github.com/zoosewu/cc-sync cc-sync bootstrap <your-privat
 cc-sync sync            # export → commit → pull --rebase → apply → push
 cc-sync sync --force    # confirm removals held by the brake
 cc-sync status
+cc-sync update          # update the cc-sync plugin itself (restart to apply)
 ```
 
 ## Claude Code plugin
 
 The `cc-sync` plugin runs the sync in the background when a session starts and after every
-main-loop turn, shows the last result on its status line, and adds `/sync [now|status|confirm]`.
+main-loop turn, shows the last result on its status line, and adds `/sync [now|status|confirm|update]`.
+After the session-start sync it updates itself from the marketplace and asks for a restart when a new
+version was installed.
 It needs [uv](https://docs.astral.sh/uv/) on `PATH`.
 
 At the prompt of a terminal session:
@@ -60,3 +63,7 @@ claude plugin install cc-sync --marketplace zoosewu/cc-sync
 ```sh
 uv run pytest
 ```
+
+From any machine with the plugin installed, `/cc-sync:enhance <change>` clones this repo to
+`~/.cache/cc-sync-dev` (or uses the current checkout), makes the change, runs the tests,
+bumps the plugin version, pushes after confirmation, and updates the local plugin.

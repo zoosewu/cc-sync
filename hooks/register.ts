@@ -1,4 +1,5 @@
 // cc-sync mod：在 session 開始與每回合結束時於背景執行 `cc-sync sync`，並提供 /sync。
+// session 開始的同步結束後再跑 `cc-sync update` 自我更新（不與 sync 同時呼叫 claude plugin）。
 // session.end 刻意不跑 git：該事件整條鏈只有很短的時間預算，逾時被殺在
 // `git add` 中途會留下 index.lock；下一次 session.start 會補 commit 殘留變更。
 import type { EngineInterface, Register } from 'claude-code'
@@ -18,19 +19,32 @@ export type SyncResult = {
   at: number
 }
 
+export type UpdateResult = {
+  action: 'update'
+  ok: boolean
+  updated: boolean
+  from: string | null
+  to: string | null
+  error: string | null
+}
+
 const TIMEOUT_MS = 5 * 60_000
 
 export const cliArgv = (root: string, args: readonly string[]): string[] =>
   ['uv', 'run', '--project', root, '--frozen', '--quiet', 'cc-sync', ...args]
 
-export const parseResult = (stdout: string): SyncResult | null => {
+export const parseResult = <T = SyncResult>(stdout: string): T | null => {
   const line = stdout.trim().split('\n').at(-1) ?? ''
   try {
-    return JSON.parse(line) as SyncResult
+    return JSON.parse(line) as T
   } catch {
     return null
   }
 }
+
+/** 自我更新的提示；沒升級時為 null。 */
+export const updateNotice = (r: UpdateResult): string | null =>
+  r.updated ? `cc-sync updated ${r.from} → ${r.to} — restart Claude Code to apply` : null
 
 const hhmm = (epochSeconds: number): string => new Date(epochSeconds * 1000).toTimeString().slice(0, 5)
 
@@ -66,10 +80,10 @@ export const summary = (r: SyncResult): string =>
 // 模組變數：熱重載時歸零即可，不需跨重載保存
 const state: { running: Promise<SyncResult | null> | null; again: boolean } = { running: null, again: false }
 
-async function run($: EngineInterface, args: readonly string[]): Promise<SyncResult | null> {
+async function run<T = SyncResult>($: EngineInterface, args: readonly string[]): Promise<T | null> {
   try {
     const r = await $.process.run(cliArgv($.plugin.root, args), { timeoutMs: TIMEOUT_MS })
-    const result = parseResult(r.stdout)
+    const result = parseResult<T>(r.stdout)
     if (!result) {
       $.ui.status(`cc-sync ⚠ ${(r.stderr || r.stdout).trim().split('\n').at(-1) ?? 'no output'}`)
       return null
@@ -105,15 +119,23 @@ function syncInBackground($: EngineInterface): void {
   })
 }
 
+/** 失敗（多半是離線）不打擾；/sync update 會顯示原因。 */
+async function updateInBackground($: EngineInterface): Promise<void> {
+  const r = await run<UpdateResult>($, ['update'])
+  const notice = r && updateNotice(r)
+  if (notice) $.ui.toast(notice, { timeoutMs: 10_000 })
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'sync',
-      description: 'cc-sync: sync now, show status, or confirm held removals',
-      argumentHint: '[now|status|confirm]',
+      description: 'cc-sync: sync now, show status, confirm held removals, or update cc-sync',
+      argumentHint: '[now|status|confirm|update]',
     })
     const started = await next(e)
     syncInBackground($)
+    void state.running?.then(() => updateInBackground($))
     return started
   })
 
@@ -129,8 +151,16 @@ export const register: Register = on => {
       const r = await run($, ['status'])
       return { text: r && 'ok' in r ? summary(r) : 'cc-sync: no sync has run yet' }
     }
-    if (arg !== 'now' && arg !== 'confirm') return { text: 'usage: /sync [now|status|confirm]' }
+    if (!['now', 'confirm', 'update'].includes(arg)) return { text: 'usage: /sync [now|status|confirm|update]' }
     if (state.running) await state.running
+    if (arg === 'update') {
+      const u = await run<UpdateResult>($, ['update'])
+      return {
+        text: !u ? 'cc-sync: no result (see status line)'
+          : !u.ok ? `update failed — ${u.error}`
+          : updateNotice(u) ?? `cc-sync is up to date (${u.to})`,
+      }
+    }
     const r = await run($, arg === 'confirm' ? ['sync', '--force'] : ['sync'])
     report($, r)
     return { text: r ? summary(r) : 'cc-sync: no result (see status line)' }

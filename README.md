@@ -4,6 +4,26 @@ Two-way sync of [Claude Code](https://code.claude.com) user config (`~/.claude`)
 Windows, macOS and Linux machines through a private git repo. Additions **and removals**
 propagate; machine-specific settings stay put.
 
+## Getting started
+
+You need [uv](https://docs.astral.sh/uv/) and git on `PATH`, and an **empty private git repo**
+you can push to (GitHub, GitLab, a self-hosted server — any URL `git push` accepts). That repo
+is where your config is synced; it is yours, and your config goes nowhere else.
+
+1. Install the plugin on every machine:
+   ```sh
+   claude plugin marketplace add zoosewu/cc-sync
+   claude plugin install cc-sync@cc-sync
+   ```
+2. Restart Claude Code, then on the first machine run `/sync init <your-repo-url>`.
+   This seeds the repo with that machine's config.
+3. On each other machine run the same `/sync init <your-repo-url>`. Joining is a union:
+   it adds what the repo has and uploads what only this machine has; nothing is removed.
+
+From then on every session start and every turn syncs in the background.
+`/sync remote` shows where you sync to; `/sync remote <new-url>` moves to another repo
+(an empty one receives your data; one with unrelated history is refused).
+
 ## What syncs
 
 | Synced | Stays local |
@@ -20,42 +40,33 @@ Settings are stored one entry per file under `shared/` so git merges them per en
 - A skill whose frontmatter has `metadata: { os: [linux, macos] }` is turned off through
   `skillOverrides` on other systems.
 
-## Usage
+## Commands
+
+Inside Claude Code:
+
+| Command | What it does |
+|---|---|
+| `/sync` or `/sync now` | sync now |
+| `/sync status` | last sync result |
+| `/sync confirm` | push removals held by the brake |
+| `/sync init <git-url>` | seed or join a sync repo |
+| `/sync remote [git-url]` | show, or move, the sync location |
+| `/sync update` | update cc-sync now (it also updates itself after each session-start sync) |
+
+The same CLI without the plugin:
 
 ```sh
-# first machine seeds the data repo, later machines join (union, nothing is removed)
-uvx --from git+https://github.com/zoosewu/cc-sync cc-sync bootstrap <your-private-data-repo-url>
-
-cc-sync sync            # export → commit → pull --rebase → apply → push
-cc-sync sync --force    # confirm removals held by the brake
-cc-sync status
-cc-sync update          # update the cc-sync plugin itself (restart to apply)
+uvx --from git+https://github.com/zoosewu/cc-sync cc-sync bootstrap <git-url>
+uvx --from git+https://github.com/zoosewu/cc-sync cc-sync sync [--force]
+uvx --from git+https://github.com/zoosewu/cc-sync cc-sync status | remote [git-url] | update
 ```
 
-## Claude Code plugin
-
-The `cc-sync` plugin runs the sync in the background when a session starts and after every
-main-loop turn, shows the last result on its status line, and adds `/sync [now|status|confirm|update]`.
-After the session-start sync it updates itself from the marketplace and asks for a restart when a new
-version was installed.
-It needs [uv](https://docs.astral.sh/uv/) on `PATH`.
-
-At the prompt of a terminal session:
-
-```
-/plugin install cc-sync --marketplace zoosewu/cc-sync
-```
-
-From a shell:
-
-```sh
-claude plugin install cc-sync --marketplace zoosewu/cc-sync
-```
+The config directory defaults to `~/.claude`; set `CLAUDE_CONFIG_DIR` or pass `--root` to use another.
 
 ## Safety
 
 - Joining is a union: nothing local is removed; conflicting files are backed up to `.cc-sync-backup/`.
-- A sync that would remove more than 3 entries (or ≥50% of tracked files) is held until `--force`.
+- A sync that would remove more than 3 entries (or ≥50% of tracked files) is held until `/sync confirm`.
 - Pull conflicts abort the rebase and keep local commits; nothing is resolved automatically.
 
 ## Development

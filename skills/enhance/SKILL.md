@@ -10,8 +10,9 @@ disable-model-invocation: true
 需求：$ARGUMENTS
 
 ## 1. 取得 repo
-- 目前目錄的 `git remote get-url origin` 是 `zoosewu/cc-sync`（不是 `cc-sync-data`）→ 就在這裡工作。
-- 否則用固定位置 `~/.cache/cc-sync-dev`：不存在就 `git clone https://github.com/zoosewu/cc-sync.git ~/.cache/cc-sync-dev`。
+- repo 來源：`claude plugin marketplace list --json` 中 `name` 為 `cc-sync` 的項目——`repo` 欄（GitHub `owner/name`）→ `https://github.com/<repo>.git`，`url` 欄則直接用。
+- 目前目錄的 `git remote get-url origin` 指向該 repo → 就在這裡工作。
+- 否則用固定位置 `~/.cache/cc-sync-dev`：不存在就 clone 該 repo 到這裡。
 - `git pull --rebase`。工作樹有未提交變更 → 停下，列出變更問使用者。
 
 完成條件：repo 在最新的 `main`、工作樹乾淨。

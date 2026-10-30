@@ -16,6 +16,7 @@ export type SyncResult = {
   needs_restart: boolean
   warnings: string[]
   error: string | null
+  remote?: string | null
   at: number
 }
 
@@ -41,6 +42,20 @@ export const parseResult = <T = SyncResult>(stdout: string): T | null => {
     return null
   }
 }
+
+export const USAGE = 'usage: /sync [now|status|confirm|update|init <git-url>|remote [git-url]]'
+
+/** /sync 的參數：子命令與其後的值（URL）。 */
+export const parseArgs = (args: string): { sub: string; value: string } => {
+  const [sub = 'now', ...rest] = args.trim().split(/\s+/).filter(Boolean)
+  return { sub, value: rest.join(' ') }
+}
+
+/** /sync remote 的輸出。 */
+export const remoteText = (r: SyncResult): string =>
+  !r.ok ? `remote: failed — ${r.error}`
+  : r.pushed ? `sync location moved to ${r.remote} (existing data pushed)`
+  : `sync location: ${r.remote}`
 
 /** 自我更新的提示；沒升級時為 null。 */
 export const updateNotice = (r: UpdateResult): string | null =>
@@ -130,8 +145,8 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'sync',
-      description: 'cc-sync: sync now, show status, confirm held removals, or update cc-sync',
-      argumentHint: '[now|status|confirm|update]',
+      description: 'cc-sync: sync now, show status, confirm held removals, update cc-sync, or set the sync repo',
+      argumentHint: '[now|status|confirm|update|init <git-url>|remote [git-url]]',
     })
     const started = await next(e)
     syncInBackground($)
@@ -146,13 +161,24 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'sync' }, async ($, e) => {
-    const arg = e.args.trim() || 'now'
+    const { sub: arg, value } = parseArgs(e.args)
     if (arg === 'status') {
       const r = await run($, ['status'])
       return { text: r && 'ok' in r ? summary(r) : 'cc-sync: no sync has run yet' }
     }
-    if (!['now', 'confirm', 'update'].includes(arg)) return { text: 'usage: /sync [now|status|confirm|update]' }
+    if (!['now', 'confirm', 'update', 'init', 'remote'].includes(arg) || (arg === 'init' && !value)) {
+      return { text: USAGE }
+    }
     if (state.running) await state.running
+    if (arg === 'init') {
+      const r = await run($, ['bootstrap', value])
+      report($, r)
+      return { text: r ? summary(r) : 'cc-sync: no result (see status line)' }
+    }
+    if (arg === 'remote') {
+      const r = await run($, value ? ['remote', value] : ['remote'])
+      return { text: r ? remoteText(r) : 'cc-sync: no result (see status line)' }
+    }
     if (arg === 'update') {
       const u = await run<UpdateResult>($, ['update'])
       return {

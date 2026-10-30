@@ -35,13 +35,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--root", help="Claude config dir (default: $CLAUDE_CONFIG_DIR or ~/.claude)")
     ap.add_argument("--human", action="store_true", help="human-readable output")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    b = sub.add_parser("bootstrap", help="seed or join a cc-sync-data repo")
+    b = sub.add_parser("bootstrap", help="seed or join a sync repo (any git URL you can push to)")
     b.add_argument("url")
     s = sub.add_parser("sync", help="export, commit, pull, apply, push")
     s.add_argument("--force", action="store_true", help="confirm removals held by the brake")
     s.add_argument("--no-pull", action="store_true", help="commit (and push) only")
     s.add_argument("--no-push", action="store_true")
     sub.add_parser("status", help="last sync result")
+    r = sub.add_parser("remote", help="show the sync location, or move it to another git URL")
+    r.add_argument("url", nargs="?")
     sub.add_parser("update", help="update the cc-sync plugin to the latest version")
     args = ap.parse_args(argv)
 
@@ -55,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
         result = core.bootstrap(paths, args.url, claude_cli)
     elif args.cmd == "sync":
         result = core.sync(paths, claude_cli, force=args.force, pull=not args.no_pull, push=not args.no_push)
+    elif args.cmd == "remote":
+        result = core.remote(paths, args.url)
     else:
         _print(jsonio.load(paths.state_dir / "last.json", {"action": "none"}), args.human)
         return 0

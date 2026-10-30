@@ -12,6 +12,7 @@ from .gitops import Git, GitError
 from .paths import GITATTRIBUTES, GITIGNORE, Paths
 
 STALE_LOCK_SECONDS = 300
+NOT_BOOTSTRAPPED = "not bootstrapped: run `/sync init <url>` (or `cc-sync bootstrap <url>`)"
 
 
 @dataclass
@@ -25,6 +26,7 @@ class Result:
     needs_restart: bool = False
     warnings: list[str] = field(default_factory=list)
     error: str | None = None
+    remote: str | None = None
     at: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict:
@@ -106,7 +108,7 @@ def sync(paths: Paths, claude: apply.Claude, *, force: bool = False, pull: bool 
     result = Result("sync")
     git = Git(paths.root)
     if not git.initialized:
-        result.ok, result.error = False, "not bootstrapped: run `cc-sync bootstrap <url>`"
+        result.ok, result.error = False, NOT_BOOTSTRAPPED
         return result
     try:
         with locked(paths):
@@ -199,3 +201,38 @@ def bootstrap(paths: Paths, url: str, claude: apply.Claude, *, os_name: str | No
             return _record(paths, result)
     except (Busy, GitError) as e:
         return Result("bootstrap", ok=False, error=str(e))
+
+
+def remote(paths: Paths, url: str | None = None) -> Result:
+    """顯示或更換同步位置。新位置是空的 → 推上現有資料（搬家）；與本機同源 → 直接改用；
+    不相關的歷史 → 拒絕並還原（要加入別的資料 repo 得重新 init）。"""
+    result = Result("remote")
+    git = Git(paths.root)
+    if not git.initialized:
+        result.ok, result.error = False, NOT_BOOTSTRAPPED
+        return result
+    try:
+        old = git.out("remote", "get-url", "origin")
+        if url is None or url == old:
+            result.remote = old
+            return result
+        with locked(paths):
+            git.run("remote", "set-url", "origin", url)
+            try:
+                if not git.out("ls-remote", "--heads", "origin", "main"):
+                    git.run("push", "-q", "-u", "origin", "main")
+                    result.pushed = True
+                else:
+                    git.run("fetch", "-q", "origin", "main")
+                    if not git.ok("merge-base", "HEAD", "origin/main"):
+                        raise GitError(f"{url} holds unrelated history; to use it, remove "
+                                       f"{paths.root / '.git'} and run `/sync init {url}`")
+                    git.run("branch", "-q", "--set-upstream-to=origin/main")
+            except GitError:
+                git.run("remote", "set-url", "origin", old)
+                git.run("fetch", "-q", "origin", "main", check=False)
+                raise
+        result.remote = url
+    except (Busy, GitError) as e:
+        result.ok, result.error = False, str(e)
+    return result

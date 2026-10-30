@@ -51,7 +51,7 @@ local-only plugin 樣式（初值）：`*-lsp@*`、`herdr-claude-restart@*`、`c
 | `session.start` | 完整循環；結束後 `cc-sync update` 自我更新（marketplace update → `claude plugin update`），有新版 toast 提示重啟 |
 | `turn.complete`（僅主 agent） | 完整循環（背景執行，不擋 UI） |
 | `session.end` | 不跑 git：整條鏈只有很短的時間預算，逾時被殺在 `git add` 中途會留下 index.lock；殘留變更由下次 `session.start` 補 commit |
-| `/sync` | `status`／`now`／`confirm`（解除刪除煞車）／`update`（立即自我更新） |
+| `/sync` | `status`／`now`／`confirm`（解除刪除煞車）／`update`（立即自我更新）／`init <url>`（bootstrap）／`remote [url]`（查詢或更換同步位置） |
 
 apply 有 plugin 變動（`needs_restart`）或自我更新升了版 → toast 提示手動重啟；cc-sync 不自動重啟。
 自我更新只在 session.start（每回合都連網太頻繁）；版本以 `plugin.json` 的 `version` 判斷，發版必須升版號。
@@ -60,6 +60,12 @@ apply 有 plugin 變動（`needs_restart`）或自我更新升了版 → toast �
 - **bootstrap（加入）採聯集**：`~/.claude/.git` 不存在即視為加入；只增不刪；同路徑檔案衝突以 repo 為準，本機版本備份到 `~/.claude/.cc-sync-backup/<時間>/`；偏好 key 以 repo 為準
 - **刪除煞車**：單次 export 會移除超過 3 項或 ≥50% 的 plugin／檔案 → 不 commit，toast 等 `/sync confirm`
 - git 歷史即備份
+
+## 同步位置
+- 資料 repo 由使用者提供（任何能 push 的 git URL），bootstrap 時存為 `~/.claude` 的 `origin`；程式不寫死位置，分支固定 `main`
+- `remote <url>` 更換：新位置空 → 推上現有資料（搬家）；與本機同源 → 改指向並設 upstream；
+  不相關歷史 → 拒絕、還原 origin（要加入別的資料 repo 須刪 `.git` 後重新 init）
+- 工具 repo（marketplace）也可替換：自我更新認 marketplace 名稱 `cc-sync`，enhance skill 從 `marketplace list` 推出 clone 來源，fork 可用
 
 ## Bootstrap
 `uvx --from git+https://github.com/zoosewu/cc-sync cc-sync bootstrap <cc-sync-data 的 git URL>`
@@ -89,7 +95,7 @@ apply 有 plugin 變動（`needs_restart`）或自我更新升了版 → toast �
 1. skills／CLAUDE.md 變更是否免重啟即生效（決定哪些變動要提示重啟）
 2. mod 如何取得 plugin 自身目錄（以呼叫 `uv run`）
 3. `claude plugin install` 在 session 進行中執行的行為
-4. 自我更新後舊版安裝目錄是否立即刪除（會讓本 session 的 mod 在重啟前呼叫不到 CLI）
+4. ~~自我更新後舊版安裝目錄是否立即刪除~~：已驗證不會（W1 0.1.0→0.1.1 後兩版目錄並存），本 session mod 重啟前照常運作
 
 ## 資料遷移（加入時一次性）
 - L 的 `CLAUDE.md` 第 4 節「CLI Tools」→ `os/linux.md` 與 `os/macos.md`

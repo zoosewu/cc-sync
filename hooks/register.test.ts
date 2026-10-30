@@ -1,6 +1,9 @@
 import { expect, test } from 'claude-code/testing'
 
-import { cliArgv, parseResult, statusLine, summary, updateNotice, type SyncResult, type UpdateResult } from './register.ts'
+import {
+  cliArgv, parseArgs, parseResult, remoteText, statusLine, summary, updateNotice, USAGE,
+  type SyncResult, type UpdateResult,
+} from './register.ts'
 
 const OK: SyncResult = {
   action: 'sync', ok: true, committed: true, pushed: true, held: [],
@@ -20,6 +23,11 @@ test('pure helpers', () => {
   expect(summary(OK)).toContain('restart Claude Code')
   expect(updateNotice(UPDATED)).toBe('cc-sync updated 0.1.0 → 0.1.1 — restart Claude Code to apply')
   expect(updateNotice({ ...UPDATED, updated: false })).toBeNull()
+  expect(parseArgs('')).toEqual({ sub: 'now', value: '' })
+  expect(parseArgs('  init  https://example.com/me/data.git ')).toEqual({ sub: 'init', value: 'https://example.com/me/data.git' })
+  expect(remoteText({ ...OK, pushed: false, remote: 'u' })).toBe('sync location: u')
+  expect(remoteText({ ...OK, remote: 'u' })).toBe('sync location moved to u (existing data pushed)')
+  expect(remoteText({ ...OK, ok: false, error: 'boom' })).toBe('remote: failed — boom')
 })
 
 function engine(on: Parameters<Parameters<typeof test>[1]>[1], result: SyncResult, update: UpdateResult = UPDATED) {
@@ -94,4 +102,20 @@ test('/sync update reports up to date or failure', async ($, on) => {
 test('/sync update shows the failure reason', async ($, on) => {
   engine(on, OK, { ...UPDATED, ok: false, updated: false, error: 'marketplace update failed: offline' })
   expect((await $.command.run({ command: 'sync', args: 'update' })).text).toBe('update failed — marketplace update failed: offline')
+})
+
+test('/sync init bootstraps with the given URL and needs one', async ($, on) => {
+  const { runs } = engine(on, { ...OK, action: 'seed' })
+  expect((await $.command.run({ command: 'sync', args: 'init' })).text).toBe(USAGE)
+  expect(runs).toEqual([])
+  expect((await $.command.run({ command: 'sync', args: 'init git@example.com:me/data.git' })).text).toContain('seed: ok')
+  expect(runs.at(-1)?.slice(-2)).toEqual(['bootstrap', 'git@example.com:me/data.git'])
+})
+
+test('/sync remote shows or moves the sync location', async ($, on) => {
+  const { runs } = engine(on, { ...OK, pushed: false, remote: 'https://example.com/me/data.git' })
+  expect((await $.command.run({ command: 'sync', args: 'remote' })).text).toBe('sync location: https://example.com/me/data.git')
+  expect(runs.at(-1)?.at(-1)).toBe('remote')
+  await $.command.run({ command: 'sync', args: 'remote https://example.com/me/new.git' })
+  expect(runs.at(-1)?.slice(-2)).toEqual(['remote', 'https://example.com/me/new.git'])
 })
